@@ -5,6 +5,17 @@
 [Bb]uild/
 [Bb]uilds/
 [Ll]ogs/
+# 빌드 산출물 (AAB, APK, WebGL 등)
+*.aab
+*.apk
+**/WebGL/
+**/*.aab
+**/*.apk
+**/.utmp/
+**/*_BackUpThisFolder_ButDontShipItWithYourGame/
+**/*_BurstDebugInformation_DoNotShip/
+user.keystore
+*.keystore
 [Uu]ser[Ss]ettings/
 [Mm]emoryCaptures/
 [Rr]ecordings/
