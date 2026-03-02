@@ -1,0 +1,6 @@
+@PoodleJump.RankingApi_HostAddress = http://localhost:5227
+
+GET {{PoodleJump.RankingApi_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###

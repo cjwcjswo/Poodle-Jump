@@ -1,0 +1,33 @@
+# PoodleJump 랭킹 API 서버 + Redis
+# 사용: docker-compose up -d
+# API: http://localhost:5000
+
+services:
+  redis:
+    image: redis:7-alpine
+    container_name: poodlejump-redis
+    volumes:
+      - ./redis-data:/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 3
+
+  api:
+    build:
+      context: ./Server
+      dockerfile: Dockerfile
+    container_name: poodlejump-api
+    ports:
+      - "5000:5000"
+    environment:
+      - ASPNETCORE_URLS=http://+:5000
+      - Redis__ConnectionString=redis:6379
+      # 상용 API Key. ApiSettings__ValidKey 환경 변수로 지정 (서버에서 ApiSettings:ValidKey로 읽음)
+      - ApiSettings__ValidKey=${ApiSettings__ValidKey:-}
+    depends_on:
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
