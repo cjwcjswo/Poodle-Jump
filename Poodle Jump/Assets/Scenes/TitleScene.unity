@@ -619,9 +619,9 @@ MonoBehaviour:
   serverErrorMessage: "\uC11C\uBC84\uC640 \uC5F0\uACB0\uD560 \uC218 \uC5C6\uC2B5\uB2C8\uB2E4."
   gameSceneName: GameScene
   apiConfigSource: {fileID: 0}
-  apiBaseUrl: http://localhost:5000/api/Ranking
+  apiBaseUrl: https://api.incopick.com/api/Ranking
   apiKeyHeader: X-Api-Key
-  apiKey: dev-api-key-change-in-production
+  apiKey: 1081wlsdnHEEEUN!@
 --- !u!1001 &891977108
 PrefabInstance:
   m_ObjectHideFlags: 0

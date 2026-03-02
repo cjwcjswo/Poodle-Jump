@@ -4,22 +4,29 @@ using UnityEngine;
 using GoogleMobileAds.Api;
 
 /// <summary>
-/// 구글 AdMob SDK로 전면 광고(Interstitial)를 제어합니다.
-/// GameManager.OnGameOver를 구독해 adsInterval마다 광고를 노출하고, 노출 후 다음 광고를 미리 로드합니다.
+/// 구글 AdMob SDK로 전면 광고(Interstitial)와 리워드 광고를 제어합니다.
+/// GameManager.OnGameOver를 구독해 adsInterval마다 전면 광고를 노출합니다.
+/// 에디터에서는 테스트 ID, 모바일 빌드에서는 인스펙터 ID, WebGL에서는 비활성화됩니다.
 /// </summary>
 public class AdManager : MonoBehaviour
 {
-    [Header("Ad Unit - 전면 (테스트 ID 기본값)")]
-    [Tooltip("Android 테스트: ca-app-pub-3940256099942544/1033173712")]
-    [SerializeField] private string androidAdUnitId = "ca-app-pub-3940256099942544/1033173712";
-    [Tooltip("iOS 테스트: ca-app-pub-3940256099942544/4411468910")]
-    [SerializeField] private string iosAdUnitId = "ca-app-pub-3940256099942544/4411468910";
+    // 구글 공식 테스트용 Ad Unit ID (에디터/테스트 시 사용)
+    private const string AndroidInterstitialTestId = "ca-app-pub-3940256099942544/1033173712";
+    private const string IosInterstitialTestId = "ca-app-pub-3940256099942544/4411468910";
+    private const string AndroidRewardedTestId = "ca-app-pub-3940256099942544/5224354917";
+    private const string IosRewardedTestId = "ca-app-pub-3940256099942544/1712485313";
 
-    [Header("Ad Unit - 리워드 (부활용)")]
-    [Tooltip("Android 테스트: ca-app-pub-3940256099942544/5224354917")]
-    [SerializeField] private string androidRewardedAdUnitId = "ca-app-pub-3940256099942544/5224354917";
-    [Tooltip("iOS 테스트: ca-app-pub-3940256099942544/1712485313")]
-    [SerializeField] private string iosRewardedAdUnitId = "ca-app-pub-3940256099942544/1712485313";
+    [Header("Ad Unit - 전면 (실기기 배포 시 인스펙터에 입력)")]
+    [Tooltip("Android 전면 광고 ID. 에디터에서는 테스트 ID가 사용됩니다.")]
+    [SerializeField] private string androidAdUnitId = "";
+    [Tooltip("iOS 전면 광고 ID. 에디터에서는 테스트 ID가 사용됩니다.")]
+    [SerializeField] private string iosAdUnitId = "";
+
+    [Header("Ad Unit - 리워드 (부활용, 실기기 배포 시 인스펙터에 입력)")]
+    [Tooltip("Android 리워드 광고 ID. 에디터에서는 테스트 ID가 사용됩니다.")]
+    [SerializeField] private string androidRewardedAdUnitId = "";
+    [Tooltip("iOS 리워드 광고 ID. 에디터에서는 테스트 ID가 사용됩니다.")]
+    [SerializeField] private string iosRewardedAdUnitId = "";
 
     [Header("노출 주기")]
     [Tooltip("게임 오버 N회마다 1회 전면 광고 노출 (예: 3이면 3판당 1회)")]
@@ -29,26 +36,24 @@ public class AdManager : MonoBehaviour
 
     private InterstitialAd _interstitialAd;
     private RewardedAd _rewardedAd;
-    /// <summary>씬 재로드 후에도 유지되어 N판당 1회 광고 노출을 맞춥니다.</summary>
     private static int _gameOverCount;
     private float _savedTimeScale = 1f;
     private float _savedVolume = 1f;
     private bool _isInitialized;
-    /// <summary>보상 획득 시 콜백. 광고가 완전히 닫힌 후(OnRewardedAdClosed)에 실행해 게임이 광고 도중 풀리는 현상 방지.</summary>
     private Action _pendingRewardCallback;
-    /// <summary>이번 광고 시청에서 보상을 실제로 획득했는지. 닫을 때 보상이 있을 때만 콜백 실행.</summary>
     private bool _rewardEarnedThisShow;
-    /// <summary>이번 리워드 광고가 실제로 열렸는지(OnRewardedAdOpened 호출됨). 열리지 않고 닫히는 경우 보상 미지급.</summary>
     private bool _rewardedAdDidOpen;
 
     private string AdUnitId
     {
         get
         {
-#if UNITY_ANDROID
-            return androidAdUnitId;
+#if UNITY_EDITOR
+            return AndroidInterstitialTestId;
+#elif UNITY_ANDROID
+            return string.IsNullOrEmpty(androidAdUnitId) ? AndroidInterstitialTestId : androidAdUnitId;
 #elif UNITY_IPHONE
-            return iosAdUnitId;
+            return string.IsNullOrEmpty(iosAdUnitId) ? IosInterstitialTestId : iosAdUnitId;
 #else
             return androidAdUnitId;
 #endif
@@ -59,10 +64,12 @@ public class AdManager : MonoBehaviour
     {
         get
         {
-#if UNITY_ANDROID
-            return androidRewardedAdUnitId;
+#if UNITY_EDITOR
+            return AndroidRewardedTestId;
+#elif UNITY_ANDROID
+            return string.IsNullOrEmpty(androidRewardedAdUnitId) ? AndroidRewardedTestId : androidRewardedAdUnitId;
 #elif UNITY_IPHONE
-            return iosRewardedAdUnitId;
+            return string.IsNullOrEmpty(iosRewardedAdUnitId) ? IosRewardedTestId : iosRewardedAdUnitId;
 #else
             return androidRewardedAdUnitId;
 #endif
@@ -71,17 +78,27 @@ public class AdManager : MonoBehaviour
 
     private void Awake()
     {
+#if UNITY_WEBGL
+        enabled = false;
+        return;
+#endif
         if (gameManager == null)
             gameManager = FindFirstObjectByType<GameManager>();
     }
 
     private void Start()
     {
+#if UNITY_WEBGL
+        return;
+#endif
         MobileAds.Initialize(OnMobileAdsInitialized);
     }
 
     private void OnEnable()
     {
+#if UNITY_WEBGL
+        return;
+#endif
         if (gameManager != null)
             gameManager.OnGameOver += HandleGameOver;
     }
@@ -100,9 +117,25 @@ public class AdManager : MonoBehaviour
         DestroyCurrentRewardedAd();
     }
 
-    /// <summary>
-    /// 현재 전면 광고 인스턴스의 이벤트를 해제하고 Destroy한 뒤 null로 둡니다.
-    /// </summary>
+    /// <summary>광고 열릴 때 게임 일시정지(Time.timeScale, 볼륨) 저장 후 0으로 설정.</summary>
+    private void PauseGameForAd()
+    {
+        _savedTimeScale = Time.timeScale;
+        Time.timeScale = 0f;
+        if (AudioListener.volume > 0f)
+        {
+            _savedVolume = AudioListener.volume;
+            AudioListener.volume = 0f;
+        }
+    }
+
+    /// <summary>광고 닫힐 때 저장해 둔 Time.timeScale, 볼륨 복구.</summary>
+    private void UnpauseGameAfterAd()
+    {
+        Time.timeScale = _savedTimeScale;
+        AudioListener.volume = _savedVolume;
+    }
+
     private void DestroyCurrentInterstitial()
     {
         if (_interstitialAd == null) return;
@@ -113,9 +146,6 @@ public class AdManager : MonoBehaviour
         _interstitialAd = null;
     }
 
-    /// <summary>
-    /// 현재 리워드 광고 인스턴스의 이벤트를 해제하고 Destroy한 뒤 null로 둡니다.
-    /// </summary>
     private void DestroyCurrentRewardedAd()
     {
         if (_rewardedAd == null) return;
@@ -136,13 +166,9 @@ public class AdManager : MonoBehaviour
         LoadRewardedAd();
     }
 
-    /// <summary>
-    /// 전면 광고를 미리 로드합니다. 실패 시 게임 흐름에 영향 없이 무시합니다.
-    /// </summary>
     public void LoadInterstitialAd()
     {
-        if (!_isInitialized)
-            return;
+        if (!_isInitialized) return;
 
         DestroyCurrentInterstitial();
 
@@ -168,16 +194,12 @@ public class AdManager : MonoBehaviour
             }
 
             _interstitialAd = ad;
-            // 최신 AdMob Unity SDK: OnAdFullScreenContentOpened / Closed / Failed (인자 없는 버전)
             _interstitialAd.OnAdFullScreenContentOpened += OnAdOpened;
             _interstitialAd.OnAdFullScreenContentClosed += OnAdClosed;
             _interstitialAd.OnAdFullScreenContentFailed += OnAdFailedToShow;
         });
     }
 
-    /// <summary>
-    /// 리워드 광고를 미리 로드합니다. 게임 시작 시 및 시청 후 자동 호출됩니다.
-    /// </summary>
     public void LoadRewardedAd()
     {
         if (!_isInitialized) return;
@@ -212,15 +234,10 @@ public class AdManager : MonoBehaviour
         });
     }
 
-    /// <summary>리워드 광고가 로드되어 표시 가능한지 여부. UI 버튼 비활성화 등에 사용.</summary>
     public bool IsRewardedAdReady => _rewardedAd != null && _rewardedAd.CanShowAd();
 
-    /// <summary>리워드 광고가 보상 없이 종료되었을 때(취소·실패·미시청). 부활 버튼 interactable 복구 등에 사용.</summary>
     public event Action OnRewardedAdFlowEndedWithoutReward;
 
-    /// <summary>
-    /// 리워드 광고를 표시합니다. 시청 완료 시 보상은 광고가 완전히 닫힌 후(OnRewardedAdClosed)에 실행됩니다.
-    /// </summary>
     public void ShowRewardedAd(Action onRewardSuccess)
     {
         if (_rewardedAd == null || !_rewardedAd.CanShowAd())
@@ -236,13 +253,10 @@ public class AdManager : MonoBehaviour
         _rewardedAdDidOpen = false;
         _rewardedAd.Show((Reward reward) =>
         {
-            _rewardEarnedThisShow = true; // 실제 지급은 OnRewardedAdClosed에서 검증 후 짧은 지연으로 수행
+            _rewardEarnedThisShow = true;
         });
     }
 
-    /// <summary>
-    /// 로드된 전면 광고를 표시합니다. 준비되지 않았으면 무시합니다.
-    /// </summary>
     public void ShowInterstitialAd()
     {
         if (_interstitialAd == null)
@@ -256,7 +270,6 @@ public class AdManager : MonoBehaviour
             LoadInterstitialAd();
             return;
         }
-
         _interstitialAd.Show();
     }
 
@@ -273,28 +286,18 @@ public class AdManager : MonoBehaviour
 
     private void OnAdOpened()
     {
-        _savedTimeScale = Time.timeScale;
-        Time.timeScale = 0f;
-
-        if (AudioListener.volume > 0f)
-        {
-            _savedVolume = AudioListener.volume;
-            AudioListener.volume = 0f;
-        }
+        PauseGameForAd();
     }
 
     private void OnAdClosed()
     {
-        Time.timeScale = _savedTimeScale;
-        AudioListener.volume = _savedVolume;
-
+        UnpauseGameAfterAd();
         LoadInterstitialAd();
     }
 
     private void OnAdFailedToShow(AdError error)
     {
-        Time.timeScale = _savedTimeScale;
-        AudioListener.volume = _savedVolume;
+        UnpauseGameAfterAd();
         Debug.LogWarning($"[AdManager] Interstitial show failed: {error?.GetMessage()}");
         LoadInterstitialAd();
     }
@@ -302,13 +305,7 @@ public class AdManager : MonoBehaviour
     private void OnRewardedAdOpened()
     {
         _rewardedAdDidOpen = true;
-        _savedTimeScale = Time.timeScale;
-        Time.timeScale = 0f;
-        if (AudioListener.volume > 0f)
-        {
-            _savedVolume = AudioListener.volume;
-            AudioListener.volume = 0f;
-        }
+        PauseGameForAd();
     }
 
     private void OnRewardedAdClosed()
@@ -325,8 +322,7 @@ public class AdManager : MonoBehaviour
         _pendingRewardCallback = null;
         _rewardEarnedThisShow = false;
         _rewardedAdDidOpen = false;
-        Time.timeScale = _savedTimeScale;
-        AudioListener.volume = _savedVolume;
+        UnpauseGameAfterAd();
         LoadRewardedAd();
 
         if (toInvoke != null)
@@ -346,8 +342,7 @@ public class AdManager : MonoBehaviour
         _pendingRewardCallback = null;
         _rewardEarnedThisShow = false;
         _rewardedAdDidOpen = false;
-        Time.timeScale = _savedTimeScale;
-        AudioListener.volume = _savedVolume;
+        UnpauseGameAfterAd();
         Debug.LogWarning($"[AdManager] Rewarded show failed: {error?.GetMessage()}");
         LoadRewardedAd();
     }

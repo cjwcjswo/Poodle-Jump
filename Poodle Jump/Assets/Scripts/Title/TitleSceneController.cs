@@ -14,7 +14,7 @@ using DG.Tweening;
 /// </summary>
 public class TitleSceneController : MonoBehaviour
 {
-    private const string GuestPrefix = "TEST_";
+    private const string GuestPrefix = "GUEST_";
 
     [Header("Nickname")]
     [SerializeField] private TextMeshProUGUI nicknameText;
